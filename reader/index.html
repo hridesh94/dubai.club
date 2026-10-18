@@ -9,7 +9,7 @@
   --accent:#0A84FF; --frost:rgba(255,255,255,.80); --fill:rgba(118,118,128,.12); --danger:#FF3B30;
   --shadow:0 12px 36px rgba(0,0,0,.20), 0 1px 3px rgba(0,0,0,.08);
   --font-ui:-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-  --font-serif:Charter,"Bitstream Charter","Iowan Old Style","Palatino Linotype",Literata,Georgia,serif;
+  --font-serif:Charter,"Bitstream Charter","Charis SIL","Iowan Old Style","Palatino Linotype",Literata,Georgia,serif;
   --r-bg:#FFFFFF; --r-fg:#1C1C1E; --r-muted:#8E8E93; --r-frost:rgba(255,255,255,.80); --r-sep:rgba(60,60,67,.18); --r-fill:rgba(118,118,128,.12);
 }
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
@@ -293,6 +293,8 @@ textarea.nt{width:100%;box-sizing:border-box;min-height:110px;border:0;border-ra
         <div class="opt"><span>Line spacing</span><div class="seg2" id="lhseg"><button type="button" data-v="1.35">Tight</button><button type="button" data-v="1.55">Normal</button><button type="button" data-v="1.8">Loose</button></div></div>
         <div class="opt"><span>Margins</span><div class="seg2" id="mgseg"><button type="button" data-v="narrow">Narrow</button><button type="button" data-v="normal">Normal</button><button type="button" data-v="wide">Wide</button></div></div>
         <div class="opt"><span>Justify text</span><button type="button" class="sw2" id="justify" role="switch" aria-checked="true" aria-label="Justify text"></button></div>
+        <div class="opt" data-native hidden><span>Turn pages with volume keys</span><button type="button" class="sw2" id="volkeys" role="switch" aria-checked="true" aria-label="Turn pages with volume keys"></button></div>
+        <div class="opt" data-native hidden><span>Keep screen on while reading</span><button type="button" class="sw2" id="keepawake" role="switch" aria-checked="true" aria-label="Keep screen on while reading"></button></div>
       </div>
     </div>
 
@@ -383,22 +385,27 @@ const THEMES = {
   focus:   {name:'Focus',    bg:'#F8F3D8', fg:'#2B2A22', muted:'#7A775F', weight:400, dark:false}
 };
 const FONTS = {
-  charter: 'Charter, "Bitstream Charter", "Iowan Old Style", "Palatino Linotype", Literata, Georgia, serif',
+  charter: 'Charter, "Bitstream Charter", "Charis SIL", "Iowan Old Style", "Palatino Linotype", Literata, Georgia, serif',
   literata: 'Literata, Charter, Georgia, serif',
-  georgia: 'Georgia, "Times New Roman", serif',
+  georgia: 'Georgia, Gelasio, "Times New Roman", serif',
   sans: '-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
 };
 const MARGINS = {narrow:6, normal:14, wide:28};
 const HL_COLORS = {yellow:'#FFD60A', blue:'#64D2FF', pink:'#FF6482', orange:'#FF9F0A'};
 const ACCENT = '#0A84FF';
 
-const DEF_SETTINGS = {theme:'original', fontSize:19, lineHeight:1.55, font:'charter', margins:'normal', justify:true, flow:'paginated', brightness:100, speed:{secs:600, locs:10}, hinted:false};
+const DEF_SETTINGS = {theme:'original', fontSize:19, lineHeight:1.55, font:'charter', margins:'normal', justify:true, flow:'paginated', brightness:100, speed:{secs:600, locs:10}, hinted:false, volKeys:true, keepAwake:true};
 let S = Object.assign({}, DEF_SETTINGS, LS.get('settings', {}));
 S.speed = Object.assign({}, DEF_SETTINGS.speed, S.speed || {});
 const saveSettings = () => LS.set('settings', S);
 
 let LIB = LS.get('lib', null);
 const saveLib = () => LS.set('lib', LIB);
+
+/* ---------- native bridge (set by the Android app; absent on the web) ---------- */
+const NATIVE = () => window.MG_NATIVE || null;
+function nativeReading(on){ const n=NATIVE(); if(n && n.setReading) n.setReading({reading:!!on, volumeKeys:!!S.volKeys, keepAwake:!!S.keepAwake}); }
+function nativeBars(dark){ const n=NATIVE(); if(n && n.setBars) n.setBars(dark); }
 
 /* ---------- toast / confirm ---------- */
 let toastT;
@@ -518,6 +525,7 @@ function applyReaderTheme(){
   viewer.style.setProperty('--margin', (MARGINS[S.margins]||14)+'px');
   $('#dim').style.opacity = String((100 - S.brightness)/100 * 0.75);
   $('#themename').textContent = t.name;
+  if(!reader.hidden) nativeBars(t.dark);
   $$('.tile').forEach(el => el.classList.toggle('on', el.dataset.theme===S.theme));
 }
 function hexA(hex, a){ const n=parseInt(hex.slice(1),16); return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`; }
@@ -547,7 +555,8 @@ function injectInto(contents){
     let s = doc.getElementById('mg-style');
     if(!s){ s = doc.createElement('style'); s.id='mg-style'; doc.head.appendChild(s); }
     s.textContent = contentCSS();
-    if(S.font==='literata' && !doc.getElementById('mg-font')){ const l=doc.createElement('link'); l.id='mg-font'; l.rel='stylesheet'; l.href='https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;0,7..72,700;1,7..72,400&display=swap'; doc.head.appendChild(l); }
+    const fontHref = window.MG_FONT_CSS_URL || (S.font==='literata' ? 'https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;0,7..72,700;1,7..72,400&display=swap' : null);
+    if(fontHref && !doc.getElementById('mg-font')){ const l=doc.createElement('link'); l.id='mg-font'; l.rel='stylesheet'; l.href=fontHref; doc.head.appendChild(l); }
   }catch(e){}
 }
 function restyleAll(relayout){
@@ -573,6 +582,7 @@ async function openBook(item, buf){
     await R.rendition.display(item.cfi || undefined);
     $('#loading').hidden = true;
     item.opened = Date.now(); saveLib();
+    nativeReading(true);
     loadLocations();
     showChrome(true, 2200);
     if(!S.hinted){ S.hinted=true; saveSettings(); const z=$('#zones'); z.classList.add('show'); setTimeout(()=>z.classList.remove('show'), 2600); }
@@ -599,7 +609,8 @@ function closeBook(show=true){
   if(R.rendition){ try{ R.rendition.destroy(); }catch(e){} R.rendition=null; }
   if(R.book){ try{ R.book.destroy(); }catch(e){} R.book=null; }
   viewer.innerHTML=''; R.loc=null; R.item=null;
-  if(show){ reader.hidden=true; $('#library').hidden=false; document.body.classList.remove('reading'); renderLibrary(); }
+  nativeReading(false);
+  if(show){ reader.hidden=true; $('#library').hidden=false; document.body.classList.remove('reading'); nativeBars(null); renderLibrary(); }
 }
 $('#back').addEventListener('click', () => closeBook(true));
 
@@ -727,7 +738,10 @@ function renderOptions(){
   $$('#lhseg button').forEach(b => b.classList.toggle('on', Math.abs(+b.dataset.v - S.lineHeight) < .01));
   $$('#mgseg button').forEach(b => b.classList.toggle('on', b.dataset.v===S.margins));
   $('#justify').classList.toggle('on', S.justify); $('#justify').setAttribute('aria-checked', String(S.justify));
+  [['#volkeys','volKeys'],['#keepawake','keepAwake']].forEach(([id,k]) => { $(id).classList.toggle('on', !!S[k]); $(id).setAttribute('aria-checked', String(!!S[k])); });
 }
+$('#volkeys').addEventListener('click', () => { S.volKeys=!S.volKeys; saveSettings(); renderOptions(); nativeReading(!reader.hidden && !!R.book); });
+$('#keepawake').addEventListener('click', () => { S.keepAwake=!S.keepAwake; saveSettings(); renderOptions(); nativeReading(!reader.hidden && !!R.book); });
 $('#fontsel').addEventListener('change', e => { S.font=e.target.value; saveSettings(); restyleAll(true); });
 $$('#lhseg button').forEach(b => b.addEventListener('click', () => { S.lineHeight=+b.dataset.v; saveSettings(); renderOptions(); restyleAll(true); }));
 $$('#mgseg button').forEach(b => b.addEventListener('click', () => { S.margins=b.dataset.v; saveSettings(); renderOptions(); applyReaderTheme(); restyleAll(true); }));
@@ -806,7 +820,10 @@ function showPop(rect){
   pop.hidden=false;
   const rr = reader.getBoundingClientRect(); const pw = pop.offsetWidth, ph = pop.offsetHeight;
   let x = rect ? (rect.left+rect.right)/2 : rr.width/2; x = clamp(x, pw/2+12, rr.width-pw/2-12);
-  let y = rect ? rect.top - ph - 12 : rr.height/2; if(y < 60) y = rect ? rect.bottom + 12 : 60; y = clamp(y, 8, rr.height-ph-8);
+  let y;
+  if(NATIVE() && rect && !p.existing){ y = rect.bottom + 14; if(y + ph > rr.height - 8) y = rect.top - ph - 64; }
+  else { y = rect ? rect.top - ph - 12 : rr.height/2; if(y < 60) y = rect ? rect.bottom + 12 : 60; }
+  y = clamp(y, 8, rr.height-ph-8);
   pop.style.left = x+'px'; pop.style.top = y+'px';
   $$('.dot', pop).forEach(b => b.addEventListener('click', () => setHighlight(b.dataset.c)));
   $$('.act', pop).forEach(b => b.addEventListener('click', () => popAction(b.dataset.a)));
@@ -828,12 +845,13 @@ async function popAction(a){
     $('#pop').hidden=true; $('#notequote').textContent=p.existing.text; $('#notesw').style.background=HL_COLORS[p.existing.color]; $('#notetext').value=p.existing.note||''; R.noteFor=p.existing; openSheet('note'); setTimeout(()=>$('#notetext').focus(), 350); }
 }
 $('#notesave').addEventListener('click', () => { if(R.noteFor){ R.noteFor.note=$('#notetext').value.trim(); saveHighlights(); toast('Note saved', 1200); } closeSheets(); hidePop(); });
-async function copyText(t){ try{ await navigator.clipboard.writeText(t); toast('Copied'); return true; }catch(e){ const ta=document.createElement('textarea'); ta.value=t; ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.select(); let ok=false; try{ ok=document.execCommand('copy'); }catch(x){} ta.remove(); toast(ok?'Copied':"Couldn't copy. Select the text and copy it yourself."); return ok; } }
+async function copyText(t){ const n=NATIVE(); if(n && n.copy){ try{ await n.copy(t); toast('Copied'); return true; }catch(e){} } try{ await navigator.clipboard.writeText(t); toast('Copied'); return true; }catch(e){ const ta=document.createElement('textarea'); ta.value=t; ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.select(); let ok=false; try{ ok=document.execCommand('copy'); }catch(x){} ta.remove(); toast(ok?'Copied':"Couldn't copy. Select the text and copy it yourself."); return ok; } }
 async function shareQuote(){
   closeMenu(); showChrome(false);
   let text = R.pending && R.pending.text; if(!text && R.highlights.length){ const last=R.highlights.slice().sort((a,b)=>b.created-a.created)[0]; text=last.text; }
   if(!text){ toast('Highlight a passage first, then share it.', 2600); return; }
   const payload = `“${text}” — ${R.item.title}${R.item.author?', '+R.item.author:''}`;
+  const n=NATIVE(); if(n && n.share){ try{ await n.share(payload, R.item.title); return; }catch(e){ if(/cancel/i.test(String(e && (e.message||e)))) return; } }
   if(navigator.share){ try{ await navigator.share({text:payload, title:R.item.title}); return; }catch(e){ if(e && e.name==='AbortError') return; } }
   await copyText(payload);
 }
@@ -875,8 +893,42 @@ $('#searchform').addEventListener('submit', async e => {
 });
 
 /* ---------- boot ---------- */
+/* ---------- hooks the Android app calls ---------- */
+// Hardware back: close the innermost layer first. Returns false when there is nothing left to close.
+window.MG_back = function(){
+  if(!$('#confirm').hidden){ $('#confirm').hidden=true; return true; }
+  if(reader.hidden) return false;
+  if(!$('#pop').hidden){ hidePop(); return true; }
+  if(openSheetId){ if(openSheetId==='options') openSheet('settings'); else { closeSheets(); showChrome(false); } return true; }
+  if(!menu.hidden){ closeMenu(); showChrome(false); return true; }
+  closeBook(true); return true;
+};
+window.MG_volumeKey = function(dir){
+  if(reader.hidden || !R.rendition || openSheetId || !$('#confirm').hidden) return;
+  hidePop(); if(!menu.hidden) closeMenu();
+  if(dir==='prev') R.rendition.prev(); else R.rendition.next();
+};
+// A book handed over by Android ("Open with" / "Share to").
+window.MG_openFile = async function(f){
+  if(!f || !f.data) return;
+  try{
+    const buf = b64ToBuf(f.data); const name = f.name || 'book.epub';
+    const r = await importBuffer(buf, {name});
+    if(!reader.hidden) closeBook(false);
+    await openBook(r.item, buf);
+  }catch(e){ toast(e.message || "Couldn't open that file.", 4500); }
+};
+window.MG_toast = toast;
+
 function boot(){
   applyReaderTheme();
+  if(NATIVE()){
+    picker.removeAttribute('accept'); // Android greys out .epub files it doesn't recognise; the name is checked on import instead
+    $$('[data-native]').forEach(el => el.hidden=false);
+    $('.hint').textContent = "Only DRM-free .epub files can be opened. Kindle-format and other DRM-protected books won't work. Books are kept on this phone; press and hold a cover to remove it. You can also open an .epub from your Files app with Marginalia.";
+    nativeBars(null);
+    if(NATIVE().ready) NATIVE().ready();
+  }
   if(LIB===null){ LIB=[]; saveLib(); importBuffer(b64ToBuf(SAMPLE_B64), {builtin:true, name:'Reading Guide'}).catch(()=>{}); }
   else { LIB.forEach(b => { if(!b.builtin && b.stored===undefined) b.stored=true; }); }
   renderLibrary();
