@@ -18,7 +18,10 @@
     "@fontsource/gelasio": "5.3.0",
     "@fontsource/literata": "5.3.0",
     "epubjs": "0.3.93",
-    "jszip": "3.10.1"
+    "fflate": "0.8.2",
+    "foliate-js": "1.0.1",
+    "jszip": "3.10.1",
+    "pdfjs-dist": "5.7.284"
   },
   "devDependencies": {
     "@capacitor/cli": "8.5.3",

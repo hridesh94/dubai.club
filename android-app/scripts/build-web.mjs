@@ -1,7 +1,7 @@
 // Builds android-app/www from the shared reader page (../reader/index.html):
 // wraps it in a full document, swaps CDN scripts and Google Fonts for bundled copies,
 // and adds the native bridge. The reader source itself stays artifact-ready.
-import { readFileSync, writeFileSync, mkdirSync, rmSync, copyFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, rmSync, copyFileSync, existsSync, cpSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
@@ -18,6 +18,16 @@ mkdirSync(join(out, 'fonts'), { recursive: true });
 // 1. Libraries
 copyFileSync(join(nm, 'jszip/dist/jszip.min.js'), join(out, 'vendor/jszip.min.js'));
 copyFileSync(join(nm, 'epubjs/dist/epub.min.js'), join(out, 'vendor/epub.min.js'));
+// Converters, loaded on demand when a MOBI/AZW3 or PDF is imported. Module files keep a .js extension
+// so the Android web server serves them with a JavaScript MIME type.
+copyFileSync(join(nm, 'foliate-js/mobi.js'), join(out, 'vendor/mobi.js'));
+copyFileSync(join(nm, 'fflate/esm/browser.js'), join(out, 'vendor/fflate.js'));
+mkdirSync(join(out, 'vendor/pdfjs'), { recursive: true });
+copyFileSync(join(nm, 'pdfjs-dist/legacy/build/pdf.min.mjs'), join(out, 'vendor/pdfjs/pdf.min.js'));
+copyFileSync(join(nm, 'pdfjs-dist/legacy/build/pdf.worker.min.mjs'), join(out, 'vendor/pdfjs/pdf.worker.min.js'));
+for (const dir of ['cmaps', 'standard_fonts', 'wasm', 'iccs']) {
+  if (existsSync(join(nm, 'pdfjs-dist', dir))) cpSync(join(nm, 'pdfjs-dist', dir), join(out, 'vendor/pdfjs', dir), { recursive: true });
+}
 
 // 2. Fonts: Charis SIL (Charter design), Literata, Gelasio (Georgia metrics). woff2 only, all subsets via unicode-range.
 const FONT_SETS = {
@@ -54,7 +64,10 @@ let page = src;
 const swaps = [
   [/<link rel="stylesheet" href="https:\/\/fonts\.googleapis\.com\/[^"]+">/, '<link rel="stylesheet" href="fonts/fonts.css">'],
   [/<script src="https:\/\/cdnjs\.cloudflare\.com\/ajax\/libs\/jszip\/[^"]+"><\/script>/,
-    '<script>window.MG_FONT_CSS_URL = new URL("fonts/fonts.css", location.href).href;</script>\n<script src="native.js"></script>\n<script src="vendor/jszip.min.js"></script>'],
+    '<script>window.MG_FONT_CSS_URL = new URL("fonts/fonts.css", location.href).href;\n' +
+    'window.MG_LIBS = (function(){ const u = (p) => new URL(p, location.href).href; return { mobi: u("vendor/mobi.js"), fflate: u("vendor/fflate.js"), pdf: u("vendor/pdfjs/pdf.min.js"), pdfWorker: u("vendor/pdfjs/pdf.worker.min.js"),' +
+    ' pdfAssets: { cMapUrl: u("vendor/pdfjs/cmaps/"), cMapPacked: true, standardFontDataUrl: u("vendor/pdfjs/standard_fonts/"), wasmUrl: u("vendor/pdfjs/wasm/"), iccUrl: u("vendor/pdfjs/iccs/") } }; })();</script>\n' +
+    '<script src="native.js"></script>\n<script src="vendor/jszip.min.js"></script>'],
   [/<script src="https:\/\/cdn\.jsdelivr\.net\/npm\/epubjs@[^"]+"><\/script>/, '<script src="vendor/epub.min.js"></script>'],
 ];
 for (const [re, rep] of swaps) {
@@ -62,7 +75,8 @@ for (const [re, rep] of swaps) {
   page = page.replace(re, rep);
 }
 const leftovers = page.match(/https:\/\/(cdnjs|cdn\.jsdelivr|unpkg|fonts\.googleapis)[^"' )]*/g) || [];
-const allowed = leftovers.filter((u) => !u.startsWith('https://fonts.googleapis.com/css2?family=Literata')); // runtime fallback only, overridden by MG_FONT_CSS_URL
+// Runtime fallbacks only: MG_FONT_CSS_URL and MG_LIBS above point the page at the bundled copies.
+const allowed = leftovers.filter((u) => !u.startsWith('https://fonts.googleapis.com/css2?family=Literata') && !/^https:\/\/cdn\.jsdelivr\.net\/npm\/(foliate-js|fflate|pdfjs-dist)@/.test(u));
 if (allowed.length) throw new Error('build-web: remote assets left in page: ' + allowed.join(', '));
 
 // Same skeleton the Artifact host wraps the page in, so layout matches what was tested there.

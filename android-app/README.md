@@ -21,9 +21,9 @@ Keep a backup of the keystore. If it's lost, future builds can't update the inst
 
 ## What the Android build adds
 
-- Works offline: epub.js, JSZip and the fonts (Charis SIL for the Charter-style default, Literata, Gelasio for Georgia) ship inside the APK.
+- Works offline: epub.js, JSZip, the fonts (Charis SIL for the Charter-style default, Literata, Gelasio for Georgia) and the format converters (foliate-js for MOBI/AZW3, pdf.js with its CMaps, standard fonts and image decoders, fflate) ship inside the APK.
 - Back button closes the innermost popup or sheet, then the book, then sends the app to the background.
-- "Open with" and "Share to" Marginalia for `.epub` files.
+- "Open with" and "Share to" Marginalia for EPUB, MOBI/AZW3, PDF, FB2, CBZ and plain-text files. Generic `application/octet-stream` files are accepted too, because many file managers label ebooks that way; the app checks the content and explains when a file isn't a book.
 - Volume keys turn pages, and the screen stays on while a book is open. Both can be switched off in Themes & Settings → Options.
 - Native share and clipboard, status-bar icons that follow the reading theme, and a working dictionary lookup.
 
