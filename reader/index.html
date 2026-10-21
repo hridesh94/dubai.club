@@ -20,6 +20,8 @@
   --frost:rgba(28,28,30,.82); --fill:rgba(118,118,128,.24); --shadow:0 12px 36px rgba(0,0,0,.6); color-scheme:dark }
 
 html,body{height:100%}
+html{box-sizing:border-box} /* the safe-area padding on :root stays inside the screen height */
+#app{height:100%} /* gives the library a fixed height, so it scrolls instead of being clipped */
 body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--font-ui);font-size:15px;line-height:1.4;-webkit-font-smoothing:antialiased;overflow:hidden;overscroll-behavior:none}
 body.reading{background:var(--r-bg)}
 button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
