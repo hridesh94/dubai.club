@@ -4,7 +4,11 @@ Capacitor wrapper that turns the reader in `../reader/index.html` into an instal
 
 ## Getting the APK
 
-Every push that touches `reader/`, `android-app/` or the workflow runs **Android APK** in GitHub Actions. Open the run, download the `marginalia-apk-N` artifact, unzip it and install the `.apk` on your phone. You'll need to allow installs from your browser or Files app the first time.
+Once release signing is set up (below), every signed build is published as a GitHub Release. The newest one is always at this permanent link, which works without a GitHub account:
+
+https://github.com/hridesh94/dubai.club/releases/latest/download/Marginalia.apk
+
+Each run of **Android APK** in GitHub Actions also keeps its APK as a run artifact for 30 days (signed in to GitHub only). Builds made before the signing secrets exist are test builds and are not released.
 
 ## Release signing (one-time)
 
